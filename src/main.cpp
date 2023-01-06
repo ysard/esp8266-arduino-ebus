@@ -16,7 +16,7 @@
 #define STACK_PROTECTOR  512 // bytes
 #define HOSTNAME "esp-eBus"
 #define RESET_PIN 3
-#define RESET_MS 1000
+#define RESET_TIMEOUT 1000
 
 #ifndef TX_DISABLE_PIN
 #define TX_DISABLE_PIN 5
@@ -33,7 +33,7 @@ unsigned long last_comms;
 unsigned char rxBuf[RXBUFFERSIZE];
 unsigned char txBuf[TXBUFFERSIZE];
 
-int random_ch(){
+int random_ch() {
 #ifdef ESP32
   return 6;
 #elif defined(ESP8266)
@@ -60,15 +60,15 @@ void wdt_feed() {
 }
 
 inline void disableTX() {
-    digitalWrite(TX_DISABLE_PIN, HIGH);
+  digitalWrite(TX_DISABLE_PIN, HIGH);
 }
 
 inline void enableTX() {
-    digitalWrite(TX_DISABLE_PIN, LOW);
+  digitalWrite(TX_DISABLE_PIN, LOW);
 }
 
-void reset(){
-  digitalWrite(TX_DISABLE_PIN, 1);
+void reset() {
+  disableTX();
   pinMode(TX_DISABLE_PIN, INPUT_PULLUP);
   ESP.restart();
 }
@@ -88,7 +88,9 @@ void setup() {
 #endif
   Serial1.setDebugOutput(true);
 
-  digitalWrite(TX_DISABLE_PIN, 1);
+  // Disable as soon as possible unavoidable early data emission by the ESP
+  // on the serial interface
+  disableTX();
   pinMode(TX_DISABLE_PIN, OUTPUT);
 
   WiFi.enableAP(false);
@@ -98,8 +100,8 @@ void setup() {
   // check if RX being hold low and reset
   pinMode(RESET_PIN, INPUT_PULLUP);
   unsigned long resetStart = millis();
-  while(digitalRead(RESET_PIN) == 0){
-    if (millis() > resetStart + RESET_MS){
+  while(digitalRead(RESET_PIN) == LOW) {
+    if (millis() > resetStart + RESET_TIMEOUT) {
       reset_config();
     }
   }
@@ -132,15 +134,15 @@ void setup() {
  */
 bool handleStatusServerRequests() {
   if (!statusServer.hasClient())
-      return false;
+    return false;
 
   WiFiClient client = statusServer.available();
 
-  if (client.availableForWrite() >= 1){
-      // Send the uptime
-      client.write((String(millis()) + '\n').c_str());
-      client.flush();
-      client.stop();
+  if (client.availableForWrite() >= 1) {
+    // Send the uptime
+    client.write((String(millis()) + '\n').c_str());
+    client.flush();
+    client.stop();
   }
   return true;
 }
@@ -154,25 +156,25 @@ bool handleStatusServerRequests() {
  */
 bool handleNewClient(WiFiServer &server, WiFiClient clients[]) {
   if (!server.hasClient())
-      return false;
+    return false;
 
   // Find free/disconnected slot
   int i;
   for (i = 0; i < MAX_SRV_CLIENTS; i++) {
-      if (!clients[i]) { // equivalent to !serverClients[i].connected()
-        clients[i] = server.available();
-        clients[i].setNoDelay(true);
-        break;
-      }
+    if (!clients[i]) { // equivalent to !serverClients[i].connected()
+      clients[i] = server.available();
+      clients[i].setNoDelay(true);
+      break;
+    }
   }
 
   // No free/disconnected slot so reject
   if (i == MAX_SRV_CLIENTS) {
-      server.available().println("busy");
-      // hints: server.available() is a WiFiClient with short-term scope
-      // when out of scope, a WiFiClient will
-      // - flush() - all data will be sent
-      // - stop() - automatically too
+    server.available().println("busy");
+    // hints: server.available() is a WiFiClient with short-term scope
+    // when out of scope, a WiFiClient will
+    // - flush() - all data will be sent
+    // - stop() - automatically too
   }
 
   return true;
@@ -183,7 +185,7 @@ bool handleNewClient(WiFiServer &server, WiFiClient clients[]) {
  * @brief Push RX buffer available data to all the given TCP clients
  */
 void pushDataToClients(WiFiClient clients[], size_t &data_length) {
-  for (int i = 0; i < MAX_SRV_CLIENTS; i++){
+  for (int i = 0; i < MAX_SRV_CLIENTS; i++) {
     // if client.availableForWrite() was 0 (congested)
     // and increased since then,
     // ensure write space is sufficient:
@@ -208,7 +210,7 @@ void loop() {
   if (WiFi.status() != WL_CONNECTED) {
     reset();
   }
-  if (millis() > last_comms + 200*1000 ) {
+  if (millis() > last_comms + 200*1000) {
     reset();
   }
 
@@ -221,7 +223,7 @@ void loop() {
   handleNewClient(wifiServerRO, serverClientsRO);
 
   // Check TCP clients for available data and send it to the eBUS
-  for (int i = 0; i < MAX_SRV_CLIENTS; i++){
+  for (int i = 0; i < MAX_SRV_CLIENTS; i++) {
     size_t client_data_len = serverClients[i].available();
     size_t authorized_len = (client_data_len > TXBUFFERSIZE) ? TXBUFFERSIZE : client_data_len;
 
@@ -245,8 +247,8 @@ void loop() {
     size_t ret = Serial.readBytes(rxBuf, authorized_len);
 
     if (ret < authorized_len)
-        // Throw out the received data
-        return;
+      // Throw out the received data
+      return;
 
     pushDataToClients(serverClients, authorized_len);
     pushDataToClients(serverClientsRO, authorized_len);
