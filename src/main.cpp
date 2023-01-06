@@ -30,6 +30,7 @@ WiFiClient serverClientsRO[MAX_SRV_CLIENTS];
 unsigned long last_comms;
 
 unsigned char rxBuf[RXBUFFERSIZE];
+unsigned char txBuf[RXBUFFERSIZE];
 
 int random_ch(){
 #ifdef ESP32
@@ -206,9 +207,18 @@ void loop() {
 
   //check TCP clients for data
   for (int i = 0; i < MAX_SRV_CLIENTS; i++){
-    while (serverClients[i].available() && Serial.availableForWrite() > 0) {
-      // working char by char is not very efficient
-      Serial.write(serverClients[i].read());
+    size_t client_data_len = serverClients[i].available();
+    size_t authorized_len = (client_data_len > RXBUFFERSIZE) ? RXBUFFERSIZE : client_data_len;
+
+    while (authorized_len && Serial.availableForWrite() > 0) {
+      size_t ret = serverClients[i].readBytes(txBuf, authorized_len);
+      if (ret < authorized_len)
+        // Error
+        continue;
+      Serial.write(txBuf, authorized_len);
+
+      client_data_len = serverClients[i].available();
+      authorized_len = (client_data_len > RXBUFFERSIZE) ? RXBUFFERSIZE : client_data_len;
     }
   }
 
