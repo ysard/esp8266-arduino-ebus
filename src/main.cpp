@@ -125,6 +125,10 @@ void setup() {
   last_comms = millis();
 }
 
+
+/**
+ * @brief Handle new TCP client on the status server; then send it the uptime in ms.
+ */
 bool handleStatusServerRequests() {
   if (!statusServer.hasClient())
       return false;
@@ -140,12 +144,18 @@ bool handleStatusServerRequests() {
   return true;
 }
 
-bool handleNewClient(WiFiServer &server, WiFiClient clients[]) {
-  if (!server.hasClient()) {
-      return false;
-  }
 
-  //find free/disconnected spot
+/**
+ * @brief Handle new TCP client for the given server
+ *
+ * @note If the server has no free slot, client is rejected &
+ *      warned with a 'busy' message.
+ */
+bool handleNewClient(WiFiServer &server, WiFiClient clients[]) {
+  if (!server.hasClient())
+      return false;
+
+  // Find free/disconnected slot
   int i;
   for (i = 0; i < MAX_SRV_CLIENTS; i++) {
       if (!clients[i]) { // equivalent to !serverClients[i].connected()
@@ -155,7 +165,7 @@ bool handleNewClient(WiFiServer &server, WiFiClient clients[]) {
       }
   }
 
-  //no free/disconnected spot so reject
+  // No free/disconnected slot so reject
   if (i == MAX_SRV_CLIENTS) {
       server.available().println("busy");
       // hints: server.available() is a WiFiClient with short-term scope
@@ -168,9 +178,10 @@ bool handleNewClient(WiFiServer &server, WiFiClient clients[]) {
 }
 
 
+/**
+ * @brief Push RX buffer available data to all the given TCP clients
+ */
 void pushDataToClients(WiFiClient clients[], size_t &data_length) {
-
-  // push UART data to all clients
   for (int i = 0; i < MAX_SRV_CLIENTS; i++){
     // if client.availableForWrite() was 0 (congested)
     // and increased since then,
