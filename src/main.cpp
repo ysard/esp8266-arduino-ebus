@@ -78,7 +78,7 @@ void reset_config() {
   wifiManager.resetSettings();
   reset();
 }
- 
+
 void setup() {
 #ifdef ESP32
   Serial1.begin(115200, SERIAL_8N1, 8, 10);
@@ -192,31 +192,32 @@ void loop() {
 
   wdt_feed();
 
+  // Restart conditions
   if (WiFi.status() != WL_CONNECTED) {
     reset();
   }
-
   if (millis() > last_comms + 200*1000 ) {
     reset();
   }
 
-  // Check if new client on the status server
+  // Check & handle new client on the status server
   handleStatusServerRequests();
 
-  // Check if there are any new clients on the eBUS servers
+  // Check if there are any new clients on the servers
   if (handleNewClient(wifiServer, serverClients))
       enableTX();
   handleNewClient(wifiServerRO, serverClientsRO);
 
-  //check TCP clients for data
+  // Check TCP clients for available data and send it to the eBUS
   for (int i = 0; i < MAX_SRV_CLIENTS; i++){
     size_t client_data_len = serverClients[i].available();
     size_t authorized_len = (client_data_len > RXBUFFERSIZE) ? RXBUFFERSIZE : client_data_len;
 
     while (authorized_len && Serial.availableForWrite() > 0) {
       size_t ret = serverClients[i].readBytes(txBuf, authorized_len);
+
       if (ret < authorized_len)
-        // Error
+        // Throw out the received data
         continue;
       Serial.write(txBuf, authorized_len);
 
@@ -225,18 +226,17 @@ void loop() {
     }
   }
 
-  // Check the bus UART for data and send it to the clients
-  size_t len = Serial.available();
-  if (len) {
-    size_t authorized_len = (len > RXBUFFERSIZE) ? RXBUFFERSIZE : len;
+  // Check the UART bus for available data and send it to the clients
+  size_t ebus_data_len = Serial.available();
+  if (ebus_data_len) {
+    size_t authorized_len = (ebus_data_len > RXBUFFERSIZE) ? RXBUFFERSIZE : ebus_data_len;
     size_t ret = Serial.readBytes(rxBuf, authorized_len);
 
     if (ret < authorized_len)
-        // Error
+        // Throw out the received data
         return;
 
     pushDataToClients(serverClients, authorized_len);
     pushDataToClients(serverClientsRO, authorized_len);
-
   }
 }
