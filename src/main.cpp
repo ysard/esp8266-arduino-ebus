@@ -15,7 +15,7 @@
 #define TXBUFFERSIZE 512
 #define STACK_PROTECTOR  512 // bytes
 #define HOSTNAME "esp-eBus"
-#define RESET_PIN 3
+#define RESET_PIN 3  // RX pin
 #define RESET_TIMEOUT 1000
 
 #ifndef TX_DISABLE_PIN
@@ -73,6 +73,10 @@ void reset() {
   ESP.restart();
 }
 
+
+/**
+ * @brief Reset the Wi-Fi settings, then restart.
+ */
 void reset_config() {
   printf("resetting config...\n");
   WiFiManager wifiManager;
