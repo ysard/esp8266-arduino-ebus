@@ -93,10 +93,6 @@ void setup() {
   disableTX();
   pinMode(TX_DISABLE_PIN, OUTPUT);
 
-  WiFi.enableAP(false);
-
-  WiFiManager wifiManager(Serial1);
-
   // check if RX being hold low and reset
   pinMode(RESET_PIN, INPUT_PULLUP);
   unsigned long resetStart = millis();
@@ -109,11 +105,13 @@ void setup() {
   Serial.setRxBufferSize(RXBUFFERSIZE);
   Serial.begin(2400);
 
+  WiFi.enableAP(false);
+  WiFiManager wifiManager(Serial1); // Send debug on Serial1
   wifiManager.setHostname(HOSTNAME);
   wifiManager.setConfigPortalTimeout(120);
   wifiManager.setWiFiAPChannel(random_ch());
   wifiManager.autoConnect(HOSTNAME);
- 
+
   wifiServer.begin();
   wifiServerRO.begin();
   statusServer.begin();
