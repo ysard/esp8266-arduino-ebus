@@ -189,7 +189,8 @@ void loop() {
   if (statusServer.hasClient()) {
     WiFiClient client = statusServer.available();
     if (client.availableForWrite() >= 1){
-      client.write(String(millis()).c_str());
+      // Send the uptime
+      client.write((String(millis()) + '\n').c_str());
       client.flush();
       client.stop();
     }
