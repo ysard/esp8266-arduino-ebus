@@ -131,6 +131,24 @@ bool handleStatusServerRequests() {
 
   WiFiClient client = statusServer.available();
 
+  String inputString;
+  inputString.reserve(20);
+  while (client_data_len) {
+      char inChar = client.read();
+      if (inChar != '\n') {
+          // end of command not reached
+          inputString += inChar;
+          client_data_len = client.available();
+          continue;
+      }
+
+      if (strncmp(inputString.c_str(), "reset", 5) == 0) {
+          reset_config();
+      }
+      // No other command expected
+      break;
+  }
+
   if (client.availableForWrite() >= 1){
       // Send the uptime
       client.write((String(millis()) + '\n').c_str());
