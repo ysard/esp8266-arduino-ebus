@@ -125,6 +125,20 @@ void setup() {
   last_comms = millis();
 }
 
+bool handleStatusServerRequests() {
+  if (!statusServer.hasClient())
+      return false;
+
+  WiFiClient client = statusServer.available();
+
+  if (client.availableForWrite() >= 1){
+      // Send the uptime
+      client.write((String(millis()) + '\n').c_str());
+      client.flush();
+      client.stop();
+  }
+  return true;
+}
 
 bool handleNewClient(WiFiServer &server, WiFiClient clients[]) {
   if (!server.hasClient()) {
@@ -186,15 +200,8 @@ void loop() {
     reset();
   }
 
-  if (statusServer.hasClient()) {
-    WiFiClient client = statusServer.available();
-    if (client.availableForWrite() >= 1){
-      // Send the uptime
-      client.write((String(millis()) + '\n').c_str());
-      client.flush();
-      client.stop();
-    }
-  }
+  // Check if new client on the status server
+  handleStatusServerRequests();
 
   // Check if there are any new clients on the eBUS servers
   if (handleNewClient(wifiServer, serverClients))
