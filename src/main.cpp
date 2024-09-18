@@ -142,6 +142,7 @@ bool handleStatusServerRequests() {
 
   String inputString;
   inputString.reserve(20);
+  size_t client_data_len = client.available();
   while (client_data_len) {
     char inChar = client.read();
     if (inChar != '\n') {
