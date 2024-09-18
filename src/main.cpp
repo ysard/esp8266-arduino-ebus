@@ -159,7 +159,7 @@ bool handleStatusServerRequests() {
 
   if (client.availableForWrite() >= 1) {
     // Send the uptime
-    client.write((String(millis()) + '\n').c_str());
+    client.println(millis());
     client.flush();
     client.stop();
   }
